@@ -1,0 +1,5 @@
+node_modules/
+*.zip
+bucket_name.txt
+lambda-function-name.txt
+layer-arn.txt
