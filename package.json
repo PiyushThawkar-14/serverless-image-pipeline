@@ -1,0 +1,36 @@
+{
+  "name": "serverless-image-pipeline",
+  "version": "1.0.0",
+  "description": "Production-ready serverless image processing on AWS — Lambda (Sharp) + S3 + DynamoDB + SNS",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "node --check lambda/process-image.mjs && node --check lambda/update-status.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "serverless",
+    "s3",
+    "dynamodb",
+    "sharp",
+    "devops"
+  ],
+  "author": "Piyush Thawkar",
+  "license": "MIT",
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1095.0",
+    "@aws-sdk/client-s3": "^3.1095.0",
+    "@aws-sdk/client-sns": "^3.1095.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "aws-sdk-client-mock": "^4.1.0",
+    "sharp": "^0.35.3",
+    "vitest": "^4.1.10"
+  }
+}
