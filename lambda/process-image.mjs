@@ -3,9 +3,12 @@ import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import sharp from "sharp";
 
-const s3 = new S3Client({ region: "ap-south-1" });
-const ddb = new DynamoDBClient({ region: "ap-south-1" });
-const sns = new SNSClient({ region: "ap-south-1" });
+// No explicit region: the SDK resolves it from AWS_REGION, which the Lambda runtime always
+// sets. Hardcoding ap-south-1 meant a copy of this function deployed anywhere else would
+// silently keep reading and writing in Mumbai.
+const s3 = new S3Client({});
+const ddb = new DynamoDBClient({});
+const sns = new SNSClient({});
 
 const TABLE_NAME = process.env.TABLE_NAME || "image-metadata";
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN || "";

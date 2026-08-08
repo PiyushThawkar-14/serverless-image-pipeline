@@ -1,6 +1,7 @@
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
 
-const ddb = new DynamoDBClient({ region: "ap-south-1" });
+// Region resolves from AWS_REGION, which the Lambda runtime sets; see process-image.mjs.
+const ddb = new DynamoDBClient({});
 const TABLE_NAME = process.env.TABLE_NAME || "image-metadata";
 
 export const handler = async (event) => {
