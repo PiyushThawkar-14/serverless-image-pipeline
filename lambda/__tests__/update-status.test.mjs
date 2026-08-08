@@ -62,6 +62,24 @@ describe("update-status handler", () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it("guards the update so an unknown imageId cannot be upserted", async () => {
+    await handler(request({ imageId: "photo.png", newStatus: "delivered" }));
+
+    const input = ddbMock.commandCalls(UpdateItemCommand)[0].args[0].input;
+    expect(input.ConditionExpression).toBe("attribute_exists(imageId)");
+  });
+
+  it("returns 404 when no record exists for the imageId", async () => {
+    const conditionFailed = new Error("The conditional request failed");
+    conditionFailed.name = "ConditionalCheckFailedException";
+    ddbMock.on(UpdateItemCommand).rejects(conditionFailed);
+
+    const response = await handler(request({ imageId: "does-not-exist.png", newStatus: "delivered" }));
+
+    expect(response.statusCode).toBe(404);
+    expect(parse(response).error).toContain("does-not-exist.png");
+  });
+
   it("returns 500 when DynamoDB rejects the write", async () => {
     ddbMock.on(UpdateItemCommand).rejects(new Error("ProvisionedThroughputExceeded"));
 
