@@ -1,4 +1,5 @@
 node_modules/
+coverage/
 *.zip
 bucket_name.txt
 lambda-function-name.txt
