@@ -12,6 +12,27 @@ const sns = new SNSClient({});
 
 const TABLE_NAME = process.env.TABLE_NAME || "image-metadata";
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN || "";
+const UPLOAD_PREFIX = "uploads/";
+const PROCESSED_PREFIX = "processed/";
+
+/**
+ * The partition key has to identify one upload, not one filename. Keying on the basename
+ * meant two users uploading photo.png shared a single DynamoDB item, so the second upload
+ * erased the first one's metadata. S3 gives us a per-object identity in the event itself:
+ * versionId on a versioned bucket, otherwise the eTag content hash. eventTime is a last
+ * resort so a malformed event still produces a distinct key rather than a colliding one.
+ */
+const buildImageId = ({ s3: { object }, eventTime }, key) => {
+  const version = object.versionId || object.eTag?.replace(/"/g, "") || eventTime;
+  return `${key}#${version}`;
+};
+
+/**
+ * Mirrors the upload's folder structure under processed/ instead of flattening to the
+ * basename, which used to make uploads/a/x.png and uploads/b/x.png overwrite each other.
+ */
+const buildProcessedKey = (key) =>
+  PROCESSED_PREFIX + (key.startsWith(UPLOAD_PREFIX) ? key.slice(UPLOAD_PREFIX.length) : key);
 
 export const handler = async (event) => {
   console.log("Event:", JSON.stringify(event, null, 2));
@@ -19,7 +40,7 @@ export const handler = async (event) => {
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
-    const imageId = key.split("/").pop();
+    const imageId = buildImageId(record, key);
     const timestamp = new Date().toISOString();
 
     console.log(`Processing: s3://${bucket}/${key}`);
@@ -36,7 +57,7 @@ export const handler = async (event) => {
         .jpeg({ quality: 80 })
         .toBuffer();
 
-      const processedKey = `processed/${imageId}`;
+      const processedKey = buildProcessedKey(key);
 
       await s3.send(new PutObjectCommand({
         Bucket: bucket,

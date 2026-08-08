@@ -19,9 +19,13 @@ const makeSourceImage = () =>
     .png()
     .toBuffer();
 
-const s3Event = (key) => ({
-  Records: [{ s3: { bucket: { name: BUCKET }, object: { key } } }],
+/** Mirrors the shape S3 actually sends, including the per-object eTag the imageId is built from. */
+const s3Record = (key, overrides = {}) => ({
+  eventTime: "2026-08-08T10:00:00.000Z",
+  s3: { bucket: { name: BUCKET }, object: { key, eTag: "d41d8cd98f00b204e9800998ecf8427e", ...overrides } },
 });
+
+const s3Event = (key, overrides) => ({ Records: [s3Record(key, overrides)] });
 
 /** The handler reads env vars at import time, so it must be imported after they are set. */
 const loadHandler = async () => (await import("../process-image.mjs?t=" + Math.random())).handler;
@@ -119,13 +123,36 @@ describe("process-image handler", () => {
     expect(snsMock.commandCalls(PublishCommand)).toHaveLength(0);
   });
 
+  it("gives two same-named uploads distinct imageIds instead of overwriting one item", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/photo.png", { eTag: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }));
+    await handler(s3Event("uploads/photo.png", { eTag: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }));
+
+    const [first, second] = ddbMock.commandCalls(PutItemCommand).map((c) => c.args[0].input.Item);
+    expect(first.imageId.S).not.toBe(second.imageId.S);
+    expect(first.originalKey.S).toBe(second.originalKey.S);
+  });
+
+  it("prefers the S3 versionId over the eTag when the bucket is versioned", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/photo.png", { versionId: "3HL4kqtJlcpXroDTDmjVBH40Nrjfkd" }));
+
+    const item = ddbMock.commandCalls(PutItemCommand)[0].args[0].input.Item;
+    expect(item.imageId.S).toBe("uploads/photo.png#3HL4kqtJlcpXroDTDmjVBH40Nrjfkd");
+  });
+
+  it("keeps the upload's folder structure so same-named files in different folders survive", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/2026/august/photo.png"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/2026/august/photo.png");
+  });
+
   it("processes every record in a batched event", async () => {
     const handler = await loadHandler();
     await handler({
-      Records: [
-        { s3: { bucket: { name: BUCKET }, object: { key: "uploads/a.png" } } },
-        { s3: { bucket: { name: BUCKET }, object: { key: "uploads/b.png" } } },
-      ],
+      Records: [s3Record("uploads/a.png"), s3Record("uploads/b.png")],
     });
 
     expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(2);
