@@ -141,6 +141,22 @@ describe("process-image handler", () => {
     expect(item.imageId.S).toBe("uploads/photo.png#3HL4kqtJlcpXroDTDmjVBH40Nrjfkd");
   });
 
+  it("falls back to the event time when S3 sends neither a versionId nor an eTag", async () => {
+    const handler = await loadHandler();
+    await handler({ Records: [{ eventTime: "2026-08-08T10:00:00.000Z", s3: { bucket: { name: BUCKET }, object: { key: "uploads/photo.png" } } }] });
+
+    const item = ddbMock.commandCalls(PutItemCommand)[0].args[0].input.Item;
+    expect(item.imageId.S).toBe("uploads/photo.png#2026-08-08T10:00:00.000Z");
+  });
+
+  it("handles a key that is not under uploads/ without mangling the output path", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("photo.png"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/photo.png");
+  });
+
   it("keeps the upload's folder structure so same-named files in different folders survive", async () => {
     const handler = await loadHandler();
     await handler(s3Event("uploads/2026/august/photo.png"));
