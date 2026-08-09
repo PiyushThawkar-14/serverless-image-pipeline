@@ -4,3 +4,14 @@ coverage/
 bucket_name.txt
 lambda-function-name.txt
 layer-arn.txt
+
+# Terraform. The provider lock file is deliberately NOT ignored: committing it is what
+# pins every machine and CI run to the same provider versions.
+.terraform/
+terraform/build/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+*.tfvars
+!*.tfvars.example
