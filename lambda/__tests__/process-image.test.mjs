@@ -165,6 +165,38 @@ describe("process-image handler", () => {
     expect(put.Key).toBe("processed/2026/august/photo.jpg");
   });
 
+  it("rewrites the extension to .jpg so the key matches the JPEG bytes it holds", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/photo.PNG"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/photo.jpg");
+  });
+
+  it("appends .jpg when the upload has no extension at all", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/photo"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/photo.jpg");
+  });
+
+  it("only rewrites the filename's extension, not a dot in a folder name", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/2026.08/photo"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/2026.08/photo.jpg");
+  });
+
+  it("treats a leading dot as part of the name rather than as an extension", async () => {
+    const handler = await loadHandler();
+    await handler(s3Event("uploads/.photo"));
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Key).toBe("processed/.photo.jpg");
+  });
+
   it("processes every record in a batched event", async () => {
     const handler = await loadHandler();
     await handler({
