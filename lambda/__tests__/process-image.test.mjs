@@ -55,7 +55,7 @@ describe("process-image handler", () => {
 
     const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
     expect(put.Bucket).toBe(BUCKET);
-    expect(put.Key).toBe("processed/photo.png");
+    expect(put.Key).toBe("processed/photo.jpg");
     expect(put.ContentType).toBe("image/jpeg");
 
     const meta = await sharp(put.Body).metadata();
@@ -79,7 +79,7 @@ describe("process-image handler", () => {
     const item = ddbMock.commandCalls(PutItemCommand)[0].args[0].input.Item;
     expect(item.status.S).toBe("completed");
     expect(item.originalKey.S).toBe("uploads/photo.png");
-    expect(item.processedKey.S).toBe("processed/photo.png");
+    expect(item.processedKey.S).toBe("processed/photo.jpg");
     expect(Number(item.sizeIn.N)).toBe(source.length);
     expect(Number(item.sizeOut.N)).toBeGreaterThan(0);
   });
@@ -154,7 +154,7 @@ describe("process-image handler", () => {
     await handler(s3Event("photo.png"));
 
     const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
-    expect(put.Key).toBe("processed/photo.png");
+    expect(put.Key).toBe("processed/photo.jpg");
   });
 
   it("keeps the upload's folder structure so same-named files in different folders survive", async () => {
@@ -162,7 +162,7 @@ describe("process-image handler", () => {
     await handler(s3Event("uploads/2026/august/photo.png"));
 
     const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
-    expect(put.Key).toBe("processed/2026/august/photo.png");
+    expect(put.Key).toBe("processed/2026/august/photo.jpg");
   });
 
   it("processes every record in a batched event", async () => {

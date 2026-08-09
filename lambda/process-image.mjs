@@ -14,6 +14,7 @@ const TABLE_NAME = process.env.TABLE_NAME || "image-metadata";
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN || "";
 const UPLOAD_PREFIX = "uploads/";
 const PROCESSED_PREFIX = "processed/";
+const OUTPUT_EXTENSION = ".jpg";
 
 /**
  * The partition key has to identify one upload, not one filename. Keying on the basename
@@ -28,11 +29,25 @@ const buildImageId = ({ s3: { object }, eventTime }, key) => {
 };
 
 /**
+ * The output is always JPEG, so the key has to say so. Carrying the source extension meant
+ * processed/photo.png held JPEG bytes — browsers cope because ContentType is right, but
+ * anything that trusts the extension (CDN rules, downloads, S3 lifecycle filters) does not.
+ * Only the basename's extension is replaced, so a folder named 2026.08/ survives, and a
+ * leading dot is treated as part of the name rather than as an extension.
+ */
+const toJpegExtension = (key) => {
+  const dot = key.lastIndexOf(".");
+  const slash = key.lastIndexOf("/");
+  return (dot > slash + 1 ? key.slice(0, dot) : key) + OUTPUT_EXTENSION;
+};
+
+/**
  * Mirrors the upload's folder structure under processed/ instead of flattening to the
  * basename, which used to make uploads/a/x.png and uploads/b/x.png overwrite each other.
  */
 const buildProcessedKey = (key) =>
-  PROCESSED_PREFIX + (key.startsWith(UPLOAD_PREFIX) ? key.slice(UPLOAD_PREFIX.length) : key);
+  PROCESSED_PREFIX +
+  toJpegExtension(key.startsWith(UPLOAD_PREFIX) ? key.slice(UPLOAD_PREFIX.length) : key);
 
 export const handler = async (event) => {
   console.log("Event:", JSON.stringify(event, null, 2));
